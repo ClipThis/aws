@@ -1,0 +1,7 @@
+{
+ "videoanalyzer": {
+  "profile": "PythonAutomation",
+  "videos_bucket": "sbeckpython12345",
+  "videos_table":""
+ }
+}
