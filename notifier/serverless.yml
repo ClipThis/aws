@@ -1,0 +1,97 @@
+service: videoanalyzer
+
+provider:
+  name: aws
+  runtime: python3.6
+  profile: ${file(../config.${self:provider.stage}.json):videoanalyzer.profile}
+  region: eu-west-1
+  stage: dev
+
+  iamRoleStatements:
+   - Effect: "Allow"
+     Action:
+      - "rekognition:*"
+     Resource: "*"
+   - Effect: "Allow"
+     Action:
+      - "s3:GetObject"
+     Resource: "arn:aws:s3:::sbeckpython12345/*"
+   - Effect: "Allow"
+     Action:
+       - iam:GetRole
+       - iam:PassRole
+     Resource:
+       Fn::GetAtt:
+         - RekognitionSNSPublishRole
+         - Arn
+
+  environment:
+    REKOGNITION_SNS_TOPIC_ARN: ${self:custom.rekognitionSNSTopicArn}
+    REKOGNITION_ROLE_ARN:
+      Fn::GetAtt:
+        - RekognitionSNSPublishRole
+        - Arn 
+
+functions:
+  startProcessingVideo:
+    handler: handler.start_processing_video
+    events:
+      - s3:
+          bucket: ${file(../config.${self:provider.stage}.json):videoanalyzer.videos_bucket}
+          event: s3:ObjectCreated:*
+          rules:
+           - suffix: .mp4
+  handleLableDetection:
+    handler: handler.handle_lable_detection
+    events:
+      - sns: handleLableDetectionTopic
+
+plugins:
+  - serverless-plugin-aws-alerts
+
+custom:
+  rekognitionSNSTopicArn:
+    Fn::Join:
+      - ':'
+      - - arn
+        - aws
+        - sns
+        - Ref: AWS::Region
+        - Ref: AWS::AccountId
+        - handleLableDetectionTopic
+  alerts:
+    stages:
+      - production
+    topics:
+      alarm:
+        topic: ${self:service}-dev-alerts-alarm
+        notifications:
+          - protocol: email
+            endpoint: sbeck@ethz.ch # Change this to your email address
+    alarms:
+      - functionErrors
+      - functionThrottles
+
+resources:
+  Resources:
+    RekognitionSNSPublishRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - rekognition.amazonaws.com
+              Action:
+                - sts:AssumeRole
+        Policies:
+          - PolicyName: RekognitionSNSPublishPolicy
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - sns:Publish
+                  Resource: ${self:custom.rekognitionSNSTopicArn}
