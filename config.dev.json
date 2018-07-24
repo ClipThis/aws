@@ -2,6 +2,6 @@
  "videoanalyzer": {
   "profile": "PythonAutomation",
   "videos_bucket": "sbeckpython12345",
-  "videos_table":""
+  "videos_table":"videolyzer-videos-dev"
  }
 }

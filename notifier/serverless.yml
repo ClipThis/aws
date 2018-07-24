@@ -24,13 +24,21 @@ provider:
        Fn::GetAtt:
          - RekognitionSNSPublishRole
          - Arn
+   - Effect: "Allow"
+     Action:
+       - "dynamodb:PutItem"
+     Resource:
+       Fn::GetAtt:
+         - VideosTable
+         - Arn
 
   environment:
+    DYNAMODB_TABLE_NAME: ${self:custom.videosTableName}
     REKOGNITION_SNS_TOPIC_ARN: ${self:custom.rekognitionSNSTopicArn}
     REKOGNITION_ROLE_ARN:
       Fn::GetAtt:
         - RekognitionSNSPublishRole
-        - Arn 
+        - Arn
 
 functions:
   startProcessingVideo:
@@ -50,6 +58,7 @@ plugins:
   - serverless-plugin-aws-alerts
 
 custom:
+  videosTableName: ${file(../config.${self:provider.stage}.json):videoanalyzer.videos_table}
   rekognitionSNSTopicArn:
     Fn::Join:
       - ':'
@@ -74,6 +83,21 @@ custom:
 
 resources:
   Resources:
+    VideosTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: videoName
+            AttributeType: S
+        KeySchema:
+          -
+            AttributeName: videoName
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:custom.videosTableName}
     RekognitionSNSPublishRole:
       Type: AWS::IAM::Role
       Properties:
